@@ -50,4 +50,85 @@ I visited a hash identifier site which shows that the hash is most likely md5.
 
 ![hashid](https://github.com/user-attachments/assets/8669f8eb-806d-4feb-b480-fc6a33ce3a89)
 
+Next I googled a md5 decrypter site and revealed that the first directory decrypts to 1:
+
+![md5 decrypt](https://github.com/user-attachments/assets/f6512233-9387-44e1-911c-e815313543ac)
+
+Likewise, decrypting the other dirs reveals that they are in numerical order from left to right.
+
+I then used this python script to fuzz the md5 directories:
+```bash
+import requests
+import time
+import sys
+import hashlib
+
+# IP address (update this to your target IP)
+ip = "10.10.205.16"
+
+def md5(string):
+    return hashlib.md5(string.encode()).hexdigest()
+
+def check_directory(number):
+    directory = md5(str(number))
+    url = f"http://{ip}/{directory}"
+    print(f"Checking URL: {url}")
+    
+    try:
+        response = requests.get(url, timeout=5)
+        return response.status_code, response.text
+    except requests.RequestException as e:
+        print(f"Request failed: {e}")
+        return None, None
+
+def main():
+    print("Starting scan...")
+
+    for i in range(50):  # Checking first 50 numbers
+        print(f"\nChecking directory {i}...")
+        status, content = check_directory(i)
+        
+        if status is None:
+            print("Error (connection failed)")
+        else:
+            print(f"Status: {status}")
+            if content and len(content) > 0:
+                print(f"Content (first 100 chars): {content[:100]}...")
+                if 'flag' in content.lower():
+                    print("FLAG FOUND IN THIS DIRECTORY!")
+                    print(f"Full content: {content}")
+                    return
+            else:
+                print("No content or empty response")
+        
+        time.sleep(1)  # 1-second delay between requests
+
+    print("\nScan complete. No flag found.")
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nScan interrupted by user.")
+        sys.exit(0)
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        sys.exit(1)
+```
+This script is designed to scan through a range of directories on a server at IP address 10.10.143.116. Here’s a breakdown of its operation:
+
+Hashing Directory Names: Each directory is represented by a 32-character MD5-like hex string derived from the integer range 0 to 50. The script converts each number to a hexadecimal string and uses it in constructing the URL.
+
+Directory Checking: For each directory (from 0 to 50), it sends a GET request to the generated URL. The check_directory function handles the request and returns the HTTP status code and response content if the connection is successful; otherwise, it returns None.
+
+Content Analysis: If any content is returned by the server, the script checks the content for the keyword "flag" (case-insensitive). If found, it prints a message indicating a "FLAG FOUND."
+
+Output: For each directory:
+
+If there’s content, it prints the status, directory number, the first 100 characters of the content, and a special note if "flag" is detected.
+If there’s no content or a connection fails, it prints a status update accordingly.
+
+And the script reveals the directory with the flag:
+
+![flag](https://github.com/user-attachments/assets/ea6d6d33-3faf-4614-b9b5-d11e09eb2657)
 
